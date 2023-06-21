@@ -36,9 +36,9 @@ const TEXT_DROPOFF_REMINDER: &str = "Не забудьте сдать собак
 const TEXT_PHOTO: &str = "Собакен на прогулке";
 const TEXT_PICKUP: &str = "Ждем вас снова";
 
-const DELAY_DROPOFF: u64 = 10;
-const DELAY_WALK: u64 = 10;
-const DELAY_PICKUP: u64 = 10;
+const DELAY_DROPOFF: u64 = 60;
+const DELAY_WALK: u64 = 300;
+const DELAY_PICKUP: u64 = 300;
 const DELAY_CHECK_DELAY: u64 = 10;
 
 const WALK_PHOTOS: &[&str] = &[
