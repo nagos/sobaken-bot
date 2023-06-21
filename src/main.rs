@@ -13,6 +13,7 @@ use teloxide::{
         InlineKeyboardButton,
         KeyboardMarkup,
         KeyboardButton,
+        KeyboardRemove,
         InputFile,
     },
 };
@@ -104,6 +105,7 @@ async fn message(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult 
     if let Some(text) = msg.text() {
         match text {
             TEXT_HOW_IS_MY_DOG => {
+                log::info!("Rest photo");
                 bot.send_message(dialogue.chat_id(), TEXT_ONE_MOMENT).await.unwrap();
                 tokio::spawn(async move {
                     time::sleep(time::Duration::from_secs(DELAY_CHECK_DELAY)).await;
@@ -123,26 +125,26 @@ async fn help(bot: Bot, _dialogue: MyDialogue, msg: Message) -> HandlerResult {
     Ok(())
 }
 
-async fn start(bot: Bot, _dialogue: MyDialogue, msg: Message) -> HandlerResult {
+async fn start(bot: Bot, dialogue: MyDialogue) -> HandlerResult {
     let buttons = [
         InlineKeyboardButton::callback(TEXT_DROPOFF, "dropoff"),
     ];
-    let buttons_keyboard = [
-        KeyboardButton::new(TEXT_HOW_IS_MY_DOG)
-    ];
-    bot.send_message(msg.chat.id, TEXT_WELCOME)
-    .reply_markup(KeyboardMarkup::default().append_row(buttons_keyboard)).await.unwrap();
-    bot.send_message(msg.chat.id, TEXT_TASK)
+
+    log::info!("Start");
+    bot.send_message(dialogue.chat_id(), TEXT_WELCOME)
+        .reply_markup(KeyboardRemove::default()).await.unwrap();
+    bot.send_message(dialogue.chat_id(), TEXT_TASK)
         .reply_markup(InlineKeyboardMarkup::new([buttons]))
         .await?;
     Ok(())
 }
 
 async fn dropoff_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult{
-    log::info!("dropoff_handler");
+    log::info!("Dropoff handler");
     if let Some(data) = q.data {
         match data.as_str() {
             "dropoff" => {
+                log::info!("Dropoff time");
                 let buttons = [
                     InlineKeyboardButton::callback(TEXT_10M, "10"),
                     InlineKeyboardButton::callback(TEXT_60M, "60"),
@@ -161,6 +163,7 @@ async fn dropoff_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> Ha
 
 async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult{
     if let Some(data) = q.data {
+        log::info!("Dropoff");
         let time = match data.as_str() {
             "10" => 10,
             "60" => 60,
@@ -170,13 +173,20 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
         bot.send_message(dialogue.chat_id(), format!("{} {}", TEXT_DROPOFF_TIME, time)).await?;
 
         tokio::spawn(async move {
+            let buttons_keyboard = [
+                KeyboardButton::new(TEXT_HOW_IS_MY_DOG)
+            ];
             
             time::sleep(time::Duration::from_secs(DELAY_DROPOFF)).await;
-            bot.send_message(dialogue.chat_id(), TEXT_DROPOFF_REMINDER).await.unwrap();
+            log::info!("Dropoff reminder");
+            bot.send_message(dialogue.chat_id(), TEXT_DROPOFF_REMINDER)
+                .reply_markup(KeyboardMarkup::default().resize_keyboard(true).append_row(buttons_keyboard))
+                .await.unwrap();
             dialogue.update(State::Walk).await.unwrap();
 
             tokio::spawn(async move {
                 time::sleep(time::Duration::from_secs(DELAY_WALK)).await;
+                log::info!("Walk photo");
                 bot.send_message(dialogue.chat_id(), TEXT_PHOTO).await.unwrap();
                 let photo = random_photo(WALK_PHOTOS);
                 bot.send_photo(dialogue.chat_id(), InputFile::file(photo)).await.unwrap();
@@ -184,8 +194,10 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
 
                 tokio::spawn(async move {
                     time::sleep(time::Duration::from_secs(DELAY_PICKUP)).await;
+                    log::info!("End");
                     bot.send_message(dialogue.chat_id(), TEXT_PICKUP).await.unwrap();
                     dialogue.update(State::Start).await.unwrap();
+                    start(bot, dialogue).await.unwrap();
                 });
             });
         });
