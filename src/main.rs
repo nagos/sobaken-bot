@@ -98,6 +98,10 @@ fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>>
         .branch(message_handler)
 }
 
+fn random_photo<'a>(list: &'a [&str]) -> &'a str {
+    list.choose(&mut rand::thread_rng()).unwrap()
+}
+
 async fn message(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     if let Some(text) = msg.text() {
         match text {
@@ -105,7 +109,7 @@ async fn message(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult 
                 bot.send_message(dialogue.chat_id(), TEXT_ONE_MOMENT).await.unwrap();
                 tokio::spawn(async move {
                     time::sleep(time::Duration::from_secs(DELAY_CHECK_DELAY)).await;
-                    let photo = REST_PHOTOS.choose(&mut rand::thread_rng()).unwrap();
+                    let photo = random_photo(REST_PHOTOS);
                     bot.send_photo(dialogue.chat_id(), InputFile::file(photo)).await.unwrap();
                 });
 
@@ -176,7 +180,7 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
             tokio::spawn(async move {
                 time::sleep(time::Duration::from_secs(DELAY_WALK)).await;
                 bot.send_message(dialogue.chat_id(), TEXT_PHOTO).await.unwrap();
-                let photo = WALK_PHOTOS.choose(&mut rand::thread_rng()).unwrap();
+                let photo = random_photo(WALK_PHOTOS);
                 bot.send_photo(dialogue.chat_id(), InputFile::file(photo)).await.unwrap();
                 dialogue.update(State::Pickup).await.unwrap();
 
@@ -197,7 +201,6 @@ async fn main() {
     log::info!("Starting sobaken bot...");
 
     let bot = Bot::from_env();
-    
 
     Dispatcher::builder(bot, schema())
         .dependencies(dptree::deps![InMemStorage::<State>::new()])
