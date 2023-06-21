@@ -22,6 +22,24 @@ use tokio::time;
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
+const TEXT_HOW_IS_MY_DOG: &str = "Как мой собакен?";
+const TEXT_ONE_MOMENT: &str = "Секундочку";
+const TEXT_DROPOFF: &str = "Сдать собакена";
+const TEXT_WELCOME: &str = "Добро пожаловать";
+const TEXT_TASK: &str = "Что можем помочь?";
+const TEXT_10M: &str = "Через 10 минут";
+const TEXT_60M: &str = "Через час";
+const TEXT_WEN: &str = "Когда?";
+const TEXT_DROPOFF_TIME: &str = "Ждем через";
+const TEXT_DROPOFF_REMINDER: &str = "Не забудьте сдать собакена!";
+const TEXT_PHOTO: &str = "Фотка";
+const TEXT_PICKUP: &str = "Ждем вас снова";
+
+const DELAY_DROPOFF: u64 = 10;
+const DELAY_WALK: u64 = 10;
+const DELAY_PICKUP: u64 = 10;
+const DELAY_CHECK_DELAY: u64 = 10;
+
 #[derive(Clone, Default)]
 pub enum State {
     #[default]
@@ -32,11 +50,11 @@ pub enum State {
 }
 
 #[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "These commands are supported:")]
+#[command(rename_rule = "lowercase", description = "Поддерживаемые команды:")]
 enum Command {
-    #[command(description = "display this text.")]
+    #[command(description = "этот текст.")]
     Help,
-    #[command(description = "start.")]
+    #[command(description = "старт.")]
     Start,
 }
 
@@ -66,10 +84,10 @@ fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>>
 async fn message(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult {
     if let Some(text) = msg.text() {
         match text {
-            "How is my dog?" => {
-                bot.send_message(dialogue.chat_id(), "One moment").await.unwrap();
+            TEXT_HOW_IS_MY_DOG => {
+                bot.send_message(dialogue.chat_id(), TEXT_ONE_MOMENT).await.unwrap();
                 tokio::spawn(async move {
-                    time::sleep(time::Duration::from_secs(10)).await;
+                    time::sleep(time::Duration::from_secs(DELAY_CHECK_DELAY)).await;
                     bot.send_photo(dialogue.chat_id(), InputFile::file("00020-1378581242.jpg")).await.unwrap();
                 });
 
@@ -87,14 +105,14 @@ async fn help(bot: Bot, _dialogue: MyDialogue, msg: Message) -> HandlerResult {
 
 async fn start(bot: Bot, _dialogue: MyDialogue, msg: Message) -> HandlerResult {
     let buttons = [
-        InlineKeyboardButton::callback("Dropoff", "dropoff"),
+        InlineKeyboardButton::callback(TEXT_DROPOFF, "dropoff"),
     ];
     let buttons_keyboard = [
-        KeyboardButton::new("How is my dog?")
+        KeyboardButton::new(TEXT_HOW_IS_MY_DOG)
     ];
-    bot.send_message(msg.chat.id, "Welcome")
+    bot.send_message(msg.chat.id, TEXT_WELCOME)
     .reply_markup(KeyboardMarkup::default().append_row(buttons_keyboard)).await.unwrap();
-    bot.send_message(msg.chat.id, "Task")
+    bot.send_message(msg.chat.id, TEXT_TASK)
         .reply_markup(InlineKeyboardMarkup::new([buttons]))
         .await?;
     Ok(())
@@ -106,11 +124,11 @@ async fn dropoff_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> Ha
         match data.as_str() {
             "dropoff" => {
                 let buttons = [
-                    InlineKeyboardButton::callback("In 10 minutes", "10"),
-                    InlineKeyboardButton::callback("In 1 hour", "60"),
+                    InlineKeyboardButton::callback(TEXT_10M, "10"),
+                    InlineKeyboardButton::callback(TEXT_60M, "60"),
                 ];
                 bot.answer_callback_query(q.id).await?;
-                bot.send_message(dialogue.chat_id(), "When")
+                bot.send_message(dialogue.chat_id(), TEXT_WEN)
                     .reply_markup(InlineKeyboardMarkup::new([buttons]))
                     .await?;
                 dialogue.update(State::Dropoff).await?;
@@ -122,7 +140,6 @@ async fn dropoff_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> Ha
 }
 
 async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult{
-    log::info!("dropoff_time_handler");
     if let Some(data) = q.data {
         let time = match data.as_str() {
             "10" => 10,
@@ -130,24 +147,24 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
             _ => {0}
         };
         bot.answer_callback_query(q.id).await?;
-        bot.send_message(dialogue.chat_id(), format!("Drop off in {time} minutes")).await?;
+        bot.send_message(dialogue.chat_id(), format!("{} {}", TEXT_DROPOFF_TIME, time)).await?;
 
         tokio::spawn(async move {
             
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-            bot.send_message(dialogue.chat_id(), "Dropoff reminder").await.unwrap();
+            time::sleep(time::Duration::from_secs(DELAY_DROPOFF)).await;
+            bot.send_message(dialogue.chat_id(), TEXT_DROPOFF_REMINDER).await.unwrap();
             dialogue.update(State::Walk).await.unwrap();
 
             tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                bot.send_message(dialogue.chat_id(), "Photo").await.unwrap();
+                time::sleep(time::Duration::from_secs(DELAY_WALK)).await;
+                bot.send_message(dialogue.chat_id(), TEXT_PHOTO).await.unwrap();
                 bot.send_photo(dialogue.chat_id(), InputFile::file("00020-1378581242.jpg")).await.unwrap();
                 dialogue.update(State::Pickup).await.unwrap();
 
                 tokio::spawn(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-                    bot.send_message(dialogue.chat_id(), "Pickup").await.unwrap();
-                    dialogue.update(State::Pickup).await.unwrap();
+                    time::sleep(time::Duration::from_secs(DELAY_PICKUP)).await;
+                    bot.send_message(dialogue.chat_id(), TEXT_PICKUP).await.unwrap();
+                    dialogue.update(State::Start).await.unwrap();
                 });
             });
         });
