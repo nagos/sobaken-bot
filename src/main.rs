@@ -47,6 +47,12 @@ const WALK_PHOTOS: &[&str] = &[
     "images/00022-632562074.jpg",
     "images/00023-1357010347.jpg",
     "images/00029-1974425078.jpg",
+    "images/00065-1572139399.jpg",
+    "images/00066-2446649328.jpg",
+    "images/00070-3953615447.jpg",
+    "images/00073-4245297097.jpg",
+    "images/00075-1564281374.jpg",
+    "images/00076-1009691694.jpg",
 ];
 
 const REST_PHOTOS: &[&str] = &[
@@ -54,6 +60,12 @@ const REST_PHOTOS: &[&str] = &[
     "images/00036-1284626168.jpg",
     "images/00037-988796557.jpg",
     "images/00038-2520346606.jpg",
+    "images/00078-1317528941.jpg",
+    "images/00080-472880983.jpg",
+    "images/00081-2778530334.jpg",
+    "images/00082-4225865963.jpg",
+    "images/00083-981580161.jpg",
+    "images/00084-1287769773.jpg",
 ];
 
 #[derive(Clone, Default)]
