@@ -18,13 +18,14 @@ use teloxide::{
 };
 
 use tokio::time;
+use rand::seq::SliceRandom;
 
 type MyDialogue = Dialogue<State, InMemStorage<State>>;
 type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
-const TEXT_HOW_IS_MY_DOG: &str = "Как мой собакен?";
+const TEXT_HOW_IS_MY_DOG: &str = "Как там мой собакен?";
 const TEXT_ONE_MOMENT: &str = "Секундочку";
-const TEXT_DROPOFF: &str = "Сдать собакена";
+const TEXT_DROPOFF: &str = "Сдать собакена 🦮";
 const TEXT_WELCOME: &str = "Добро пожаловать";
 const TEXT_TASK: &str = "Что можем помочь?";
 const TEXT_10M: &str = "Через 10 минут";
@@ -32,13 +33,27 @@ const TEXT_60M: &str = "Через час";
 const TEXT_WEN: &str = "Когда?";
 const TEXT_DROPOFF_TIME: &str = "Ждем через";
 const TEXT_DROPOFF_REMINDER: &str = "Не забудьте сдать собакена!";
-const TEXT_PHOTO: &str = "Фотка";
+const TEXT_PHOTO: &str = "Собакен на прогулке";
 const TEXT_PICKUP: &str = "Ждем вас снова";
 
 const DELAY_DROPOFF: u64 = 10;
 const DELAY_WALK: u64 = 10;
 const DELAY_PICKUP: u64 = 10;
 const DELAY_CHECK_DELAY: u64 = 10;
+
+const WALK_PHOTOS: &[&str] = &[
+    "images/00020-1378581242.jpg",
+    "images/00022-632562074.jpg",
+    "images/00023-1357010347.jpg",
+    "images/00029-1974425078.jpg",
+];
+
+const REST_PHOTOS: &[&str] = &[
+    "images/00035-3425653837.jpg",
+    "images/00036-1284626168.jpg",
+    "images/00037-988796557.jpg",
+    "images/00038-2520346606.jpg",
+];
 
 #[derive(Clone, Default)]
 pub enum State {
@@ -70,7 +85,9 @@ fn schema() -> UpdateHandler<Box<dyn std::error::Error + Send + Sync + 'static>>
 
     let message_handler = Update::filter_message()
         .branch(command_handler)
+        .branch(case![State::Dropoff].endpoint(message))
         .branch(case![State::Walk].endpoint(message))
+        .branch(case![State::Pickup].endpoint(message))
         .endpoint(help);
 
     dialogue::enter::<Update, InMemStorage<State>, State, _>()
@@ -88,7 +105,8 @@ async fn message(bot: Bot, dialogue: MyDialogue, msg: Message) -> HandlerResult 
                 bot.send_message(dialogue.chat_id(), TEXT_ONE_MOMENT).await.unwrap();
                 tokio::spawn(async move {
                     time::sleep(time::Duration::from_secs(DELAY_CHECK_DELAY)).await;
-                    bot.send_photo(dialogue.chat_id(), InputFile::file("00020-1378581242.jpg")).await.unwrap();
+                    let photo = REST_PHOTOS.choose(&mut rand::thread_rng()).unwrap();
+                    bot.send_photo(dialogue.chat_id(), InputFile::file(photo)).await.unwrap();
                 });
 
             },
@@ -158,7 +176,8 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
             tokio::spawn(async move {
                 time::sleep(time::Duration::from_secs(DELAY_WALK)).await;
                 bot.send_message(dialogue.chat_id(), TEXT_PHOTO).await.unwrap();
-                bot.send_photo(dialogue.chat_id(), InputFile::file("00020-1378581242.jpg")).await.unwrap();
+                let photo = WALK_PHOTOS.choose(&mut rand::thread_rng()).unwrap();
+                bot.send_photo(dialogue.chat_id(), InputFile::file(photo)).await.unwrap();
                 dialogue.update(State::Pickup).await.unwrap();
 
                 tokio::spawn(async move {
