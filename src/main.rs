@@ -15,6 +15,7 @@ use teloxide::{
         KeyboardButton,
         KeyboardRemove,
         InputFile,
+        MessageId
     },
 };
 
@@ -107,6 +108,7 @@ fn schema() -> UpdateHandler<HandlerError> {
         .branch(Update::filter_callback_query()
             .branch(case![State::Dropoff].endpoint(dropoff_handler))
             .branch(case![State::DropoffTime].endpoint(dropoff_time_handler))
+            .endpoint(callback_ignore_handler)
         )
         .branch(message_handler)
 }
@@ -160,6 +162,9 @@ async fn start(bot: &Bot, dialogue: &MyDialogue) -> HandlerResult {
 
 async fn dropoff_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) -> HandlerResult {
     log::info!("Dropoff handler");
+    if let Some(msg) = q.message {
+        remove_inline_buttons(&bot, dialogue.chat_id(), msg.id).await?;
+    }
     if let Some(data) = q.data {
         if data.as_str() == "dropoff" {
             log::info!("Dropoff time");
@@ -188,6 +193,11 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
         bot.answer_callback_query(q.id).await?;
         bot.send_message(dialogue.chat_id(), format!("{} {}", TEXT_DROPOFF_TIME, time)).await?;
 
+        if let Some(msg) = q.message {
+            remove_inline_buttons(&bot, dialogue.chat_id(), msg.id).await?;
+        }
+        dialogue.update(State::Walk).await?;
+
         tokio::spawn(async move {
             time::sleep(time::Duration::from_secs(DELAY_DROPOFF)).await;
             dropoff_reminder_msg(&bot, &dialogue).await.unwrap();
@@ -202,6 +212,16 @@ async fn dropoff_time_handler(bot: Bot, dialogue: MyDialogue, q: CallbackQuery) 
     Ok(())
 }
 
+async fn callback_ignore_handler(bot: Bot, q: CallbackQuery) -> HandlerResult {
+    bot.answer_callback_query(q.id).await?;
+    Ok(())
+}
+
+async fn remove_inline_buttons(bot: &Bot, chat_id: ChatId, msg_id: MessageId) -> HandlerResult {
+    bot.edit_message_reply_markup(chat_id, msg_id).reply_markup(InlineKeyboardMarkup::default()).await?;
+    Ok(())
+}
+
 async fn dropoff_reminder_msg(bot: &Bot, dialogue: &MyDialogue) -> HandlerResult {
     let buttons_keyboard = [
         KeyboardButton::new(TEXT_HOW_IS_MY_DOG)
@@ -213,7 +233,6 @@ async fn dropoff_reminder_msg(bot: &Bot, dialogue: &MyDialogue) -> HandlerResult
             .resize_keyboard(true)
             .append_row(buttons_keyboard))
         .await?;
-    dialogue.update(State::Walk).await?;
     Ok(())
 }
 
